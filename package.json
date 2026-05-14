@@ -20,7 +20,7 @@
         {
           "id": "acceletron-chatbot",
           "title": "Chatbot",
-          "icon": "media/chatbot-icon.svg"
+          "icon": "media/favicon.png"
         }
       ]
     },
@@ -73,7 +73,7 @@
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.19.19",
     "@types/vscode": "^1.120.0",
-    "@types/ws": "^8.5.10",
+    "@types/ws": "^8.18.1",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.3",

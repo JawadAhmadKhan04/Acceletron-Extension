@@ -333,6 +333,64 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			background: #555;
 		}
 
+		.prompt-item-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			cursor: pointer;
+			user-select: none;
+		}
+
+		.prompt-item-header:hover {
+			color: var(--accent-blue);
+		}
+
+		.prompt-toggle {
+			display: inline-block;
+			transition: transform 0.3s ease;
+			font-size: 10px;
+		}
+
+		.prompt-item.collapsed .prompt-toggle {
+			transform: rotate(-90deg);
+		}
+
+		.prompt-item.collapsed .prompt-item-text {
+			display: none;
+		}
+
+		.copy-button {
+			background: transparent;
+			border: 1px solid var(--accent-blue);
+			color: var(--accent-blue);
+			padding: 4px 8px;
+			border-radius: 3px;
+			cursor: pointer;
+			font-size: 11px;
+			transition: all 0.2s;
+			white-space: nowrap;
+		}
+
+		.copy-button:hover {
+			background: var(--accent-blue);
+			color: white;
+		}
+
+		.copy-button.copied {
+			background: var(--accent-green);
+			color: white;
+			border-color: var(--accent-green);
+		}
+
+		.code-header {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			margin-bottom: 10px;
+			padding-bottom: 8px;
+			border-bottom: 1px solid var(--border-color);
+		}
+
 		.compilation-result {
 			display: flex;
 			align-items: center;
@@ -677,35 +735,146 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 					messagesContainer.appendChild(profilingSection);
 					break;
 
+				case 'mcprof_profiling':
+					const mcprofSection = createSection('Memory & Communication Profiling', '💾', 'mcprof-section');
+					let mcprofContent = '';
+					
+					// Memory profile
+					if (payload.memory_profile) {
+						mcprofContent += \`
+							<div style="margin-bottom: 12px;">
+								<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">📈 Memory Profile:</div>
+								<div class="code-block"><pre>\${payload.memory_profile}</pre></div>
+							</div>
+						\`;
+					}
+					
+					// // Call graph
+					// if (payload.call_graph) {
+					// 	mcprofContent += \`
+					// 		<div style="margin-bottom: 12px;">
+					// 			<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">📊 Call Graph:</div>
+					// 			<img src="data:image/png;base64,\${payload.call_graph}" style="max-width: 100%; border-radius: 4px; border: 1px solid var(--border-color);" />
+					// 		</div>
+					// 	\`;
+					// }
+					
+					// // Communication graph
+					// if (payload.comm_graph) {
+					// 	mcprofContent += \`
+					// 		<div style="margin-bottom: 12px;">
+					// 			<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">🔗 Communication Graph:</div>
+					// 			<img src="data:image/png;base64,\${payload.comm_graph}" style="max-width: 100%; border-radius: 4px; border: 1px solid var(--border-color);" />
+					// 		</div>
+					// 	\`;
+					// }
+					
+					mcprofSection.querySelector('.section-content').innerHTML = mcprofContent;
+					mcprofSection.classList.remove('collapsed');
+					messagesContainer.appendChild(mcprofSection);
+					break;
+
 				case 'prompt_generation':
 					clearMessages();
 					state.prompts = payload.prompts;
 					const promptsSection = createSection(\`LLM Prompts (\${payload.prompts.length})\`, '✨', 'prompts-section');
-					const promptsContent = payload.prompts.map((p, idx) => \`
-						<div class="prompt-item">
-							<div class="prompt-item-title">Prompt \${p.prompt_id}</div>
-							<div class="prompt-item-text">\${p.prompt.substring(0, 200)}...</div>
-						</div>
-					\`).join('');
-					promptsSection.querySelector('.section-content').innerHTML = promptsContent;
+					const promptsContent = document.createElement('div');
+					
+					payload.prompts.forEach((p, idx) => {
+						const promptItem = document.createElement('div');
+						promptItem.className = 'prompt-item collapsed';
+						promptItem.style.marginBottom = '8px';
+						
+						const headerDiv = document.createElement('div');
+						headerDiv.className = 'prompt-item-header';
+						headerDiv.style.display = 'flex';
+						headerDiv.style.justifyContent = 'space-between';
+						headerDiv.style.alignItems = 'center';
+						
+						const titleDiv = document.createElement('div');
+						titleDiv.style.display = 'flex';
+						titleDiv.style.alignItems = 'center';
+						titleDiv.style.gap = '8px';
+						titleDiv.style.flex = '1';
+						titleDiv.innerHTML = \`
+							<span class="prompt-toggle">▶</span>
+							<div class="prompt-item-title" style="margin: 0;">Prompt \${idx + 1}</div>
+						\`;
+						
+						const copyBtn = document.createElement('button');
+						copyBtn.className = 'copy-button';
+						copyBtn.textContent = '📋 Copy';
+						copyBtn.onclick = (e) => {
+							e.stopPropagation();
+							navigator.clipboard.writeText(p.prompt).then(() => {
+								copyBtn.textContent = '✅ Copied';
+								setTimeout(() => copyBtn.textContent = '📋 Copy', 2000);
+							});
+						};
+						
+						headerDiv.appendChild(titleDiv);
+						headerDiv.appendChild(copyBtn);
+						
+						const textDiv = document.createElement('div');
+						textDiv.className = 'prompt-item-text';
+						textDiv.textContent = p.prompt;
+						textDiv.style.marginTop = '8px';
+						textDiv.style.whiteSpace = 'pre-wrap';
+						
+						promptItem.appendChild(headerDiv);
+						promptItem.appendChild(textDiv);
+						
+						headerDiv.addEventListener('click', (e) => {
+							if (e.target !== copyBtn) {
+								promptItem.classList.toggle('collapsed');
+							}
+						});
+						
+						promptsContent.appendChild(promptItem);
+					});
+					
+					promptsSection.querySelector('.section-content').appendChild(promptsContent);
 					promptsSection.classList.remove('collapsed');
 					messagesContainer.appendChild(promptsSection);
 					break;
 
 				case 'cuda_generation_chunk':
 					if (payload.cuda_code) {
-						const codeSection = createSection('Generated CUDA Code', '💻', 'code-section');
-						const codeContent = \`
-							<div style="margin-bottom: 8px;">
-								<span class="status-badge info">Prompt \${payload.prompt_id}</span>
-							</div>
-							<div class="code-block"><pre>\${payload.cuda_code}</pre></div>
-						\`;
-						codeSection.querySelector('.section-content').innerHTML += codeContent;
-						codeSection.classList.remove('collapsed');
-						if (!document.getElementById('code-section')) {
+						let codeSection = document.getElementById('code-section');
+						if (!codeSection) {
+							codeSection = createSection('Generated CUDA Code', '💻', 'code-section');
 							messagesContainer.appendChild(codeSection);
 						}
+						
+						const codeContainer = document.createElement('div');
+						codeContainer.style.marginBottom = '12px';
+						
+						const codeHeader = document.createElement('div');
+						codeHeader.className = 'code-header';
+						codeHeader.innerHTML = \`<span class="status-badge info">Prompt \${payload.prompt_id}</span>\`;
+						
+						const copyCodeBtn = document.createElement('button');
+						copyCodeBtn.className = 'copy-button';
+						copyCodeBtn.textContent = '📋 Copy Code';
+						copyCodeBtn.onclick = () => {
+							navigator.clipboard.writeText(payload.cuda_code).then(() => {
+								copyCodeBtn.textContent = '✅ Copied';
+								setTimeout(() => copyCodeBtn.textContent = '📋 Copy Code', 2000);
+							});
+						};
+						codeHeader.appendChild(copyCodeBtn);
+						
+						const codeBlock = document.createElement('div');
+						codeBlock.className = 'code-block';
+						const pre = document.createElement('pre');
+						pre.textContent = payload.cuda_code;
+						codeBlock.appendChild(pre);
+						
+						codeContainer.appendChild(codeHeader);
+						codeContainer.appendChild(codeBlock);
+						
+						codeSection.querySelector('.section-content').appendChild(codeContainer);
+						codeSection.classList.remove('collapsed');
 					}
 					break;
 
@@ -738,13 +907,36 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 				case 'final_result':
 					state.finalCode = payload.cuda_code;
 					const finalSection = createSection('🏆 Best CUDA Code', '🎉', 'final-section');
-					const finalContent = \`
-						<div style="margin-bottom: 12px; padding: 10px; background: rgba(16, 124, 16, 0.15); border-radius: 4px; border-left: 3px solid var(--accent-green);">
-							<div style="color: var(--accent-green); font-weight: 600;">⚡ Best Execution Time: \${payload.cuda_time}ms</div>
-						</div>
-						<div class="code-block"><pre>\${payload.cuda_code}</pre></div>
-					\`;
-					finalSection.querySelector('.section-content').innerHTML = finalContent;
+					const finalContent = document.createElement('div');
+					
+					const bestTimeDiv = document.createElement('div');
+					bestTimeDiv.style.cssText = 'margin-bottom: 12px; padding: 10px; background: rgba(16, 124, 16, 0.15); border-radius: 4px; border-left: 3px solid var(--accent-green);';
+					bestTimeDiv.innerHTML = \`<div style="color: var(--accent-green); font-weight: 600;">⚡ Best Execution Time: \${payload.cuda_time}ms</div>\`;
+					
+					const finalHeader = document.createElement('div');
+					finalHeader.className = 'code-header';
+					const copyFinalBtn = document.createElement('button');
+					copyFinalBtn.className = 'copy-button';
+					copyFinalBtn.textContent = '📋 Copy Best Code';
+					copyFinalBtn.onclick = () => {
+						navigator.clipboard.writeText(payload.cuda_code).then(() => {
+							copyFinalBtn.textContent = '✅ Copied';
+							setTimeout(() => copyFinalBtn.textContent = '📋 Copy Best Code', 2000);
+						});
+					};
+					finalHeader.appendChild(copyFinalBtn);
+					
+					const finalCodeBlock = document.createElement('div');
+					finalCodeBlock.className = 'code-block';
+					const finalPre = document.createElement('pre');
+					finalPre.textContent = payload.cuda_code;
+					finalCodeBlock.appendChild(finalPre);
+					
+					finalContent.appendChild(bestTimeDiv);
+					finalContent.appendChild(finalHeader);
+					finalContent.appendChild(finalCodeBlock);
+					
+					finalSection.querySelector('.section-content').appendChild(finalContent);
 					finalSection.classList.remove('collapsed');
 					messagesContainer.appendChild(finalSection);
 					break;
