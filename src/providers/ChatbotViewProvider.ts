@@ -8,12 +8,16 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 	private backendUrl = 'ws://localhost:8000/c_to_cuda'; // Configure this as needed
 
 	constructor(private readonly context: vscode.ExtensionContext) {
+		console.log('🔍 [Extension] ChatbotViewProvider constructor called');
 		this.connectToBackend();
+		console.log('🔍 [Extension] connectToBackend() called in constructor');
 	}
 
 	private connectToBackend() {
+		console.log('🔍 [Extension] connectToBackend() method executing');
 		try {
 			this.websocket = new WebSocket(this.backendUrl);
+			console.log('🔍 [Extension] WebSocket created, attempting connection to:', this.backendUrl);
 
 			this.websocket.on('open', () => {
 				console.log('✅ WebSocket connected to backend');
@@ -65,21 +69,50 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 		}
 	}
 
+	public showConverter() {
+		if (this.webviewView) {
+			vscode.commands.executeCommand('chatbotPanel.focus');
+			this.webviewView.webview.postMessage({
+				type: 'showView',
+				view: 'converter-view'
+			});
+		}
+	}
+
+	public showHistory() {
+		console.log('🔍 [Extension] showHistory() called');
+		if (this.webviewView) {
+			console.log('🔍 [Extension] Webview exists, executing command and posting message');
+			vscode.commands.executeCommand('chatbotPanel.focus');
+			this.webviewView.webview.postMessage({
+				type: 'showView',
+				view: 'history-view'
+			});
+			console.log('🔍 [Extension] Posted message to webview: showView -> history-view');
+		} else {
+			console.error('❌ [Extension] Webview is undefined!');
+		}
+	}
+
 	public resolveWebviewView(
 		webviewView: vscode.WebviewView,
 		context: vscode.WebviewViewResolveContext,
 		token: vscode.CancellationToken,
 	) {
+		console.log('🔍 [Extension] resolveWebviewView() called');
 		this.webviewView = webviewView;
+		console.log('🔍 [Extension] Webview assigned to this.webviewView');
 
 		// Configure the webview
 		webviewView.webview.options = {
 			enableScripts: true,
 			localResourceRoots: [this.context.extensionUri],
 		};
+		console.log('🔍 [Extension] Webview options configured');
 
 		// Load the webview HTML
 		webviewView.webview.html = this.getWebviewContent(webviewView.webview);
+		console.log('🔍 [Extension] Webview HTML loaded');
 
 		// Handle messages from the webview
 		webviewView.webview.onDidReceiveMessage((message) => {
@@ -95,7 +128,10 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 
 		// Notify webview of current connection status
 		if (this.websocket?.readyState === WebSocket.OPEN) {
+			console.log('🔍 [Extension] WebSocket is open, notifying webview of connected status');
 			this.notifyWebviewStatus('connected');
+		} else {
+			console.log('🔍 [Extension] WebSocket is not open (readyState:', this.websocket?.readyState, ')');
 		}
 	}
 
@@ -104,12 +140,12 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
-	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: vscode-resource:; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; connect-src ws://localhost:8000 http://localhost:8000; img-src data: vscode-resource:; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Acceletron CUDA Converter</title>
 	<style>
 		* {
-			margin: 0;
+			margin: 0;	
 			padding: 0;
 			box-sizing: border-box;
 		}
@@ -142,6 +178,70 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			display: flex;
 			flex-direction: column;
 			height: 100%;
+		}
+
+		.view-content {
+			display: none;
+			flex: 1;
+			flex-direction: column;
+			overflow: hidden;
+		}
+
+		.view-content.active {
+			display: flex;
+		}
+
+		#history-list {
+			flex: 1;
+			overflow-y: auto;
+			padding: 16px;
+			display: flex;
+			flex-direction: column;
+			gap: 12px;
+		}
+
+		#history-list::-webkit-scrollbar {
+			width: 10px;
+		}
+
+		#history-list::-webkit-scrollbar-track {
+			background: transparent;
+		}
+
+		#history-list::-webkit-scrollbar-thumb {
+			background: var(--border-color);
+			border-radius: 5px;
+		}
+
+		#history-list::-webkit-scrollbar-thumb:hover {
+			background: #555;
+		}
+
+		.history-item {
+			background: var(--surface-secondary);
+			border: 1px solid var(--border-color);
+			border-radius: 6px;
+			padding: 12px;
+		}
+
+		.history-header {
+			display: flex;
+			justify-content: space-between;
+			margin-bottom: 8px;
+			font-weight: 600;
+		}
+
+		.history-code-preview {
+			font-family: 'Monaco', 'Courier New', monospace;
+			font-size: 11px;
+			color: #aaa;
+			background: #1a1a1a;
+			padding: 8px;
+			border-radius: 4px;
+			margin-bottom: 8px;
+			max-height: 100px;
+			overflow-y: hidden;
+			border: 1px solid var(--border-color);
 		}
 
 		#top-bar {
@@ -625,32 +725,186 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 				<span id="status-text">Disconnected</span>
 			</div>
 		</div>
-		<div id="messages">
-			<div id="welcome-message">
-				<h2>Welcome to Acceletron</h2>
-				<p>Paste your C code below and submit to convert it to optimized CUDA</p>
+
+		<div id="converter-view" class="view-content active">
+			<div id="messages">
+				<div id="welcome-message">
+					<h2>Welcome to Acceletron</h2>
+					<p>Paste your C code below and submit to convert it to optimized CUDA</p>
+				</div>
+			</div>
+			<div id="input-section">
+				<textarea id="message-input" placeholder="Paste your C code here..."></textarea>
+				<button id="send-btn">Convert</button>
 			</div>
 		</div>
-		<div id="input-section">
-			<textarea id="message-input" placeholder="Paste your C code here..."></textarea>
-			<button id="send-btn">Convert</button>
+
+		<div id="history-view" class="view-content">
+			<div id="history-list">
+				<!-- History items will be injected here -->
+			</div>
 		</div>
 	</div>
 
 	<script>
 		const vscode = acquireVsCodeApi();
+		console.log('🔍 [Webview] Script initializing...');
 		const messagesContainer = document.getElementById('messages');
 		const messageInput = document.getElementById('message-input');
 		const sendBtn = document.getElementById('send-btn');
 		const statusDot = document.getElementById('status-dot');
 		const statusText = document.getElementById('status-text');
+		console.log('🔍 [Webview] DOM elements found:', {
+			messagesContainer: !!messagesContainer,
+			messageInput: !!messageInput,
+			sendBtn: !!sendBtn,
+			statusDot: !!statusDot,
+			statusText: !!statusText
+		});
 		let hasMessages = false;
 		let isConnected = false;
+		let currentInputCode = '';
 		let state = {
 			prompts: [],
 			compilationResults: [],
 			executionResults: [],
 			finalCode: null
+		};
+
+		// No longer using local state for history, we will fetch from backend
+
+		// View switching logic
+		const views = document.querySelectorAll('.view-content');
+
+		function switchView(targetId) {
+			console.log('🔍 [Webview] switchView() called with targetId:', targetId);
+			views.forEach(v => v.classList.remove('active'));
+			const target = document.getElementById(targetId);
+			console.log('🔍 [Webview] Target element found:', !!target, 'Element:', target?.id);
+			if (target) {
+				target.classList.add('active');
+				console.log('🔍 [Webview] Added active class to:', targetId);
+			} else {
+				console.error('❌ [Webview] Target element not found:', targetId);
+			}
+			if (targetId === 'history-view') {
+				console.log('🔍 [Webview] History view activated, calling renderHistory()');
+				renderHistory();
+			}
+		}
+
+		async function renderHistory() {
+			console.log('🔍 [Webview] renderHistory() called');
+			const list = document.getElementById('history-list');
+			console.log('🔍 [Webview] history-list element found:', !!list);
+			list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">Loading history...</div>';
+			console.log('🔍 [Webview] Set loading state');
+			try {
+				console.log('🔍 [Webview] Fetching from http://localhost:8000/history/');
+				const response = await fetch('http://localhost:8000/history/');
+				console.log('🔍 [Webview] Fetch response received, status:', response.status);
+				if (!response.ok) throw new Error('Failed to fetch');
+				const items = await response.json();
+				console.log('🔍 [Webview] History items received:', items.length, 'items');
+				
+				if (items.length === 0) {
+					console.log('🔍 [Webview] No history items, displaying empty message');
+					list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">No history yet. Convert some code to see it here.</div>';
+					return;
+				}
+				
+				console.log('🔍 [Webview] Rendering', items.length, 'history items');
+				list.innerHTML = items.map(item => \`
+					<div class="history-item">
+						<div class="history-header" style="margin-bottom: 0;">
+							<span style="font-size: 14px; color: var(--vscode-foreground);">\${item.name || 'Conversion'}</span>
+							<span class="status-badge info">\${new Date(item.timestamp).toLocaleString()}</span>
+						</div>
+						<div style="margin-top: 12px;">
+							<button class="copy-button" onclick="loadHistoryItem('\${item.id}')">Load in Converter</button>
+						</div>
+					</div>
+				\`).join('');
+				console.log('🔍 [Webview] History items rendered successfully');
+			} catch (error) {
+				console.error('❌ [Webview] Error loading history:', error);
+				list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--accent-red);">Failed to load history from backend. Make sure the backend is running.</div>';
+			}
+		}
+
+		window.loadHistoryItem = async function(id) {
+			switchView('converter-view');
+			// Clear all previous content from converter
+			messagesContainer.innerHTML = '';
+			console.log('🔍 [Webview] Cleared messages container for history load');
+			
+			const loadingEl = document.createElement('div');
+			loadingEl.id = 'loading-indicator';
+			loadingEl.style.cssText = 'text-align: center; padding: 16px; color: #999;';
+			loadingEl.innerHTML = '<span class="loading-spinner"></span> Loading history details...';
+			messagesContainer.appendChild(loadingEl);
+
+			try {
+				const response = await fetch(\`http://localhost:8000/history/\${id}\`);
+				if (!response.ok) throw new Error('Failed to fetch detail');
+				const detail = await response.json();
+				loadingEl.remove();
+
+				// Recreate the user message
+				const userMessageEl = document.createElement('div');
+				userMessageEl.style.cssText = 'background: var(--accent-blue); color: white; padding: 12px; border-radius: 4px; margin-bottom: 8px;';
+				userMessageEl.innerHTML = \`<strong>📝 Your C Code:</strong><div class="code-block"><pre>\${detail.c_code}</pre></div>\`;
+				messagesContainer.appendChild(userMessageEl);
+
+				if (detail.best_cuda_code && detail.best_cuda_code.cuda_code) {
+					const finalSection = createSection('🏆 Best CUDA Code (From History)', '🎉', 'final-section-history');
+					const finalContent = document.createElement('div');
+					
+					if (detail.best_cuda_code.cuda_time) {
+						const bestTimeDiv = document.createElement('div');
+						bestTimeDiv.style.cssText = 'margin-bottom: 12px; padding: 10px; background: rgba(16, 124, 16, 0.15); border-radius: 4px; border-left: 3px solid var(--accent-green);';
+						bestTimeDiv.innerHTML = \`<div style="color: var(--accent-green); font-weight: 600;">⚡ Execution Time: \${detail.best_cuda_code.cuda_time}ms</div>\`;
+						finalContent.appendChild(bestTimeDiv);
+					}
+					
+					const finalHeader = document.createElement('div');
+					finalHeader.className = 'code-header';
+					const copyFinalBtn = document.createElement('button');
+					copyFinalBtn.className = 'copy-button';
+					copyFinalBtn.textContent = '📋 Copy Code';
+					copyFinalBtn.onclick = () => {
+						navigator.clipboard.writeText(detail.best_cuda_code.cuda_code).then(() => {
+							copyFinalBtn.textContent = '✅ Copied';
+							setTimeout(() => copyFinalBtn.textContent = '📋 Copy Code', 2000);
+						});
+					};
+					finalHeader.appendChild(copyFinalBtn);
+					
+					const finalCodeBlock = document.createElement('div');
+					finalCodeBlock.className = 'code-block';
+					const finalPre = document.createElement('pre');
+					finalPre.textContent = detail.best_cuda_code.cuda_code;
+					finalCodeBlock.appendChild(finalPre);
+					
+					finalContent.appendChild(finalHeader);
+					finalContent.appendChild(finalCodeBlock);
+					
+					finalSection.querySelector('.section-content').appendChild(finalContent);
+					finalSection.classList.remove('collapsed');
+					messagesContainer.appendChild(finalSection);
+				} else {
+					const infoEl = document.createElement('div');
+					infoEl.style.cssText = 'background: rgba(0, 120, 212, 0.15); border-left: 3px solid var(--accent-blue); border-radius: 4px; padding: 12px; margin-bottom: 8px;';
+					infoEl.innerHTML = \`No optimal CUDA code generated in this history item.\`;
+					messagesContainer.appendChild(infoEl);
+				}
+			} catch (err) {
+				loadingEl.remove();
+				const errEl = document.createElement('div');
+				errEl.style.cssText = 'background: rgba(243, 101, 74, 0.15); border-left: 3px solid var(--accent-red); border-radius: 4px; padding: 12px; color: var(--accent-red);';
+				errEl.innerHTML = \`Failed to load history details.\`;
+				messagesContainer.appendChild(errEl);
+			}
 		};
 
 		function updateConnectionStatus(status) {
@@ -936,6 +1190,10 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 					console.log('🏁 final_result:', JSON.stringify(payload));
 					console.log('performance_metrics:', payload.performance_metrics);
 					state.finalCode = payload.cuda_code;
+					
+					// We do not save to local VS Code state anymore
+					// The backend stores it when the session completes
+
 					const finalSection = createSection('🏆 Best CUDA Code', '🎉', 'final-section');
 					const finalContent = document.createElement('div');
 					
@@ -989,6 +1247,7 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 				return;
 			}
 
+			currentInputCode = message;
 			clearMessages();
 
 			// Display user message
@@ -1024,19 +1283,28 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 
 		// Listen for messages from the extension
 		window.addEventListener('message', (event) => {
-			const { type, data, status } = event.data;
+			const { type, data, status, view } = event.data;
+			console.log('🔍 [Webview] Received message from extension:', { type, status, view });
 
 			if (type === 'connectionStatus') {
+				console.log('🔍 [Webview] Updating connection status to:', status);
 				updateConnectionStatus(status);
 			} else if (type === 'backendMessage') {
+				console.log('🔍 [Webview] Received backend message');
 				const loading = document.getElementById('loading-indicator');
 				if (loading) loading.remove();
 				handleBackendMessage(data);
+			} else if (type === 'showView') {
+				console.log('🔍 [Webview] showView message received, switching to view:', view);
+				switchView(view);
+			} else {
+				console.warn('⚠️ [Webview] Unknown message type:', type);
 			}
 		});
 
 		// Initial status
 		updateConnectionStatus('disconnected');
+		console.log('🔍 [Webview] Webview script fully initialized');
 	</script>
 </body>
 </html>`;

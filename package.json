@@ -49,8 +49,32 @@
       {
         "command": "acceletron-extension.openChatbot",
         "title": "Open Acceletron Chatbot"
+      },
+      {
+        "command": "acceletron-extension.showConverter",
+        "title": "Converter",
+        "icon": "$(zap)"
+      },
+      {
+        "command": "acceletron-extension.showHistory",
+        "title": "History",
+        "icon": "$(history)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "acceletron-extension.showConverter",
+          "when": "view == chatbotPanel",
+          "group": "navigation@1"
+        },
+        {
+          "command": "acceletron-extension.showHistory",
+          "when": "view == chatbotPanel",
+          "group": "navigation@2"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

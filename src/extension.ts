@@ -27,7 +27,15 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.executeCommand('chatbotPanel.focus');
 	});
 
-	context.subscriptions.push(cudaCommand, chatbotCommand);
+	const showConverterCommand = vscode.commands.registerCommand('acceletron-extension.showConverter', () => {
+		chatbotProvider.showConverter();
+	});
+
+	const showHistoryCommand = vscode.commands.registerCommand('acceletron-extension.showHistory', () => {
+		chatbotProvider.showHistory();
+	});
+
+	context.subscriptions.push(cudaCommand, chatbotCommand, showConverterCommand, showHistoryCommand);
 }
 
 export function deactivate() {
