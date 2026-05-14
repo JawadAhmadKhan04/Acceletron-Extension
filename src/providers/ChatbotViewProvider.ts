@@ -105,7 +105,7 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
-	<title>Acceletron</title>
+	<title>Acceletron CUDA Converter</title>
 	<style>
 		* {
 			margin: 0;
@@ -116,15 +116,19 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 		:root {
 			--vscode-foreground: #e0e0e0;
 			--vscode-background: #1e1e1e;
-			--accent-blue: #007acc;
-			--accent-green: #13a10e;
-			--accent-red: #f14c4c;
+			--accent-blue: #0078d4;
+			--accent-green: #107c10;
+			--accent-red: #f3654a;
+			--accent-yellow: #ffb900;
+			--surface-secondary: #252526;
+			--surface-tertiary: #2d2d30;
+			--border-color: #3e3e42;
 		}
 
 		body {
 			background-color: var(--vscode-background);
 			color: var(--vscode-foreground);
-			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+			font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif;
 			font-size: 13px;
 			line-height: 1.5;
 			height: 100vh;
@@ -137,23 +141,26 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			display: flex;
 			flex-direction: column;
 			height: 100%;
-			padding: 0;
 		}
 
 		#top-bar {
 			display: flex;
 			justify-content: space-between;
 			align-items: center;
-			padding: 12px 16px;
-			border-bottom: 1px solid #3e3e42;
-			background-color: rgba(0, 0, 0, 0.2);
+			padding: 14px 16px;
+			border-bottom: 1px solid var(--border-color);
+			background: linear-gradient(to bottom, var(--surface-tertiary), var(--surface-secondary));
 			flex-shrink: 0;
+			box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 		}
 
 		#title {
 			font-weight: 600;
 			font-size: 14px;
-			letter-spacing: 0.5px;
+			letter-spacing: 0.3px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
 		}
 
 		#status-indicator {
@@ -161,9 +168,11 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			align-items: center;
 			gap: 6px;
 			font-size: 11px;
-			padding: 4px 8px;
-			border-radius: 4px;
-			background-color: rgba(255, 255, 255, 0.05);
+			padding: 4px 10px;
+			border-radius: 12px;
+			background-color: rgba(255, 255, 255, 0.08);
+			border: 1px solid rgba(255, 255, 255, 0.12);
+			transition: all 0.3s ease;
 		}
 
 		#status-dot {
@@ -171,106 +180,262 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			height: 8px;
 			border-radius: 50%;
 			background-color: var(--accent-red);
+			animation: pulse 2s infinite;
 		}
 
 		#status-dot.connected {
 			background-color: var(--accent-green);
+			animation: none;
+		}
+
+		@keyframes pulse {
+			0%, 100% { opacity: 1; }
+			50% { opacity: 0.5; }
 		}
 
 		#messages {
 			flex: 1;
 			overflow-y: auto;
+			overflow-x: hidden;
 			padding: 16px;
 			display: flex;
 			flex-direction: column;
 			gap: 12px;
 		}
 
-		.message {
-			padding: 10px 12px;
+		#messages::-webkit-scrollbar {
+			width: 10px;
+		}
+
+		#messages::-webkit-scrollbar-track {
+			background: transparent;
+		}
+
+		#messages::-webkit-scrollbar-thumb {
+			background: var(--border-color);
+			border-radius: 5px;
+		}
+
+		#messages::-webkit-scrollbar-thumb:hover {
+			background: #555;
+		}
+
+		.section {
+			background: var(--surface-secondary);
+			border: 1px solid var(--border-color);
 			border-radius: 6px;
-			max-width: 90%;
-			word-wrap: break-word;
-			font-family: 'Courier New', monospace;
+			overflow: hidden;
+			flex-shrink: 0;
+		}
+
+		.section-header {
+			padding: 12px 14px;
+			background: linear-gradient(to right, var(--surface-tertiary), rgba(0, 0, 0, 0.1));
+			border-bottom: 1px solid var(--border-color);
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			transition: background 0.2s;
+			font-weight: 500;
+			user-select: none;
+		}
+
+		.section-header:hover {
+			background: linear-gradient(to right, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+		}
+
+		.section-header-title {
+			display: flex;
+			align-items: center;
+			gap: 8px;
+		}
+
+		.toggle-icon {
+			display: inline-block;
+			transition: transform 0.3s ease;
+			color: var(--accent-blue);
+		}
+
+		.section.collapsed .toggle-icon {
+			transform: rotate(-90deg);
+		}
+
+		.section-content {
+			padding: 12px 14px;
+			max-height: 400px;
+			overflow-y: auto;
+		}
+
+		.section-content::-webkit-scrollbar {
+			width: 8px;
+		}
+
+		.section-content::-webkit-scrollbar-track {
+			background: transparent;
+		}
+
+		.section-content::-webkit-scrollbar-thumb {
+			background: var(--border-color);
+			border-radius: 4px;
+		}
+
+		.section-content::-webkit-scrollbar-thumb:hover {
+			background: #555;
+		}
+
+		.section.collapsed .section-content {
+			display: none;
+		}
+
+		.prompt-item {
+			background: var(--surface-tertiary);
+			border: 1px solid var(--border-color);
+			border-radius: 4px;
+			padding: 10px 12px;
+			margin-bottom: 8px;
 			font-size: 12px;
 		}
 
-		.message.user {
-			align-self: flex-end;
-			background-color: var(--accent-blue);
-			color: white;
+		.prompt-item:last-child {
+			margin-bottom: 0;
 		}
 
-		.message.bot {
-			align-self: flex-start;
-			background-color: #3e3e42;
-			color: var(--vscode-foreground);
+		.prompt-item-title {
+			font-weight: 600;
+			color: var(--accent-blue);
+			margin-bottom: 6px;
 		}
 
-		.message.bot.info {
+		.prompt-item-text {
+			color: #999;
+			font-family: 'Courier New', monospace;
+			max-height: 200px;
+			overflow-y: auto;
+			word-break: break-word;
+			padding: 4px;
+		}
+
+		.prompt-item-text::-webkit-scrollbar {
+			width: 6px;
+		}
+
+		.prompt-item-text::-webkit-scrollbar-track {
+			background: transparent;
+		}
+
+		.prompt-item-text::-webkit-scrollbar-thumb {
+			background: var(--border-color);
+			border-radius: 3px;
+		}
+
+		.prompt-item-text::-webkit-scrollbar-thumb:hover {
+			background: #555;
+		}
+
+		.compilation-result {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 10px 12px;
+			margin-bottom: 8px;
+			border-radius: 4px;
+			font-size: 12px;
+			word-break: break-word;
+		}
+
+		.compilation-result.success {
+			background: rgba(16, 124, 16, 0.15);
+			border-left: 3px solid var(--accent-green);
+		}
+
+		.compilation-result.failed {
+			background: rgba(243, 101, 74, 0.15);
+			border-left: 3px solid var(--accent-red);
+		}
+
+		.execution-result {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			padding: 10px 12px;
+			margin-bottom: 8px;
+			border-radius: 4px;
+			font-size: 12px;
+			word-break: break-word;
+		}
+
+		.execution-result.success {
+			background: rgba(16, 124, 16, 0.15);
+			border-left: 3px solid var(--accent-green);
+		}
+
+		.execution-result.failed {
+			background: rgba(243, 101, 74, 0.15);
+			border-left: 3px solid var(--accent-red);
+		}
+
+		.code-block {
+			background: #1a1a1a;
+			border: 1px solid var(--border-color);
+			border-radius: 4px;
+			padding: 12px;
+			margin: 8px 0;
+			overflow-x: auto;
+			overflow-y: auto;
+			font-family: 'Monaco', 'Courier New', monospace;
 			font-size: 11px;
-			color: #858585;
+			color: #d4d4d4;
+			line-height: 1.4;
+			max-height: 300px;
 		}
 
-		.message.bot.error {
+		.code-block::-webkit-scrollbar {
+			width: 8px;
+			height: 8px;
+		}
+
+		.code-block::-webkit-scrollbar-track {
+			background: transparent;
+		}
+
+		.code-block::-webkit-scrollbar-thumb {
+			background: var(--border-color);
+			border-radius: 4px;
+		}
+
+		.code-block::-webkit-scrollbar-thumb:hover {
+			background: #555;
+		}
+
+		.code-block pre {
+			margin: 0;
+			white-space: pre-wrap;
+			word-break: break-all;
+		}
+
+		.status-badge {
+			display: inline-block;
+			padding: 2px 8px;
+			border-radius: 3px;
+			font-size: 11px;
+			font-weight: 500;
+			background: rgba(255, 255, 255, 0.1);
+		}
+
+		.status-badge.success {
+			background: rgba(16, 124, 16, 0.3);
+			color: var(--accent-green);
+		}
+
+		.status-badge.failed {
+			background: rgba(243, 101, 74, 0.3);
 			color: var(--accent-red);
 		}
 
-		#input-section {
-			display: flex;
-			gap: 8px;
-			padding: 12px 16px;
-			border-top: 1px solid #3e3e42;
-			flex-shrink: 0;
-			background-color: rgba(0, 0, 0, 0.1);
-		}
-
-		#message-input {
-			flex: 1;
-			padding: 8px 12px;
-			border: 1px solid #3e3e42;
-			border-radius: 4px;
-			background-color: #252526;
-			color: var(--vscode-foreground);
-			font-size: 13px;
-			font-family: 'Courier New', monospace;
-			outline: none;
-			min-height: 80px;
-			resize: vertical;
-		}
-
-		#message-input:focus {
-			border-color: var(--accent-blue);
-		}
-
-		#message-input:disabled {
-			opacity: 0.5;
-			cursor: not-allowed;
-		}
-
-		#send-btn {
-			padding: 8px 12px;
-			background-color: var(--accent-blue);
-			color: white;
-			border: none;
-			border-radius: 4px;
-			cursor: pointer;
-			font-weight: 500;
-			transition: background-color 0.2s;
-			align-self: flex-end;
-		}
-
-		#send-btn:hover:not(:disabled) {
-			background-color: #005a9e;
-		}
-
-		#send-btn:active:not(:disabled) {
-			background-color: #004578;
-		}
-
-		#send-btn:disabled {
-			opacity: 0.5;
-			cursor: not-allowed;
+		.status-badge.info {
+			background: rgba(0, 120, 212, 0.3);
+			color: var(--accent-blue);
 		}
 
 		#welcome-message {
@@ -280,31 +445,118 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			align-items: center;
 			height: 100%;
 			text-align: center;
-			gap: 12px;
+			gap: 16px;
 			padding: 24px;
 			color: #858585;
 		}
 
 		#welcome-message h2 {
 			color: var(--vscode-foreground);
-			font-size: 16px;
+			font-size: 18px;
 			font-weight: 600;
+			margin: 0;
 		}
 
-		.code-block {
-			background-color: #1e1e1e;
-			border: 1px solid #3e3e42;
+		#welcome-message p {
+			margin: 0;
+			font-size: 12px;
+			color: #999;
+			max-width: 300px;
+		}
+
+		#input-section {
+			display: flex;
+			gap: 8px;
+			padding: 12px 16px;
+			border-top: 1px solid var(--border-color);
+			flex-shrink: 0;
+			background: var(--surface-secondary);
+			border-top: 1px solid var(--border-color);
+		}
+
+		#message-input {
+			flex: 1;
+			padding: 10px 12px;
+			border: 1px solid var(--border-color);
 			border-radius: 4px;
-			padding: 8px;
-			margin: 8px 0;
-			overflow-x: auto;
+			background-color: var(--surface-tertiary);
+			color: var(--vscode-foreground);
+			font-size: 12px;
+			font-family: 'Courier New', monospace;
+			outline: none;
+			min-height: 60px;
+			resize: vertical;
+			transition: border-color 0.2s, box-shadow 0.2s;
+		}
+
+		#message-input:focus {
+			border-color: var(--accent-blue);
+			box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.2);
+		}
+
+		#message-input:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+
+		#message-input::placeholder {
+			color: #666;
+		}
+
+		#send-btn {
+			padding: 10px 16px;
+			background: linear-gradient(135deg, var(--accent-blue), #005a9e);
+			color: white;
+			border: none;
+			border-radius: 4px;
+			cursor: pointer;
+			font-weight: 600;
+			font-size: 12px;
+			transition: all 0.2s;
+			align-self: flex-end;
+			white-space: nowrap;
+		}
+
+		#send-btn:hover:not(:disabled) {
+			box-shadow: 0 4px 12px rgba(0, 120, 212, 0.4);
+			transform: translateY(-1px);
+		}
+
+		#send-btn:active:not(:disabled) {
+			transform: translateY(0);
+		}
+
+		#send-btn:disabled {
+			opacity: 0.5;
+			cursor: not-allowed;
+		}
+
+		.icon {
+			font-size: 14px;
+		}
+
+		.loading-spinner {
+			display: inline-block;
+			width: 4px;
+			height: 4px;
+			border-radius: 50%;
+			background: var(--accent-blue);
+			animation: blink 1.4s infinite;
+		}
+
+		@keyframes blink {
+			0%, 100% { opacity: 1; }
+			50% { opacity: 0.3; }
 		}
 	</style>
 </head>
 <body>
 	<div id="chat-container">
 		<div id="top-bar">
-			<div id="title">💬 Acceletron CUDA Converter</div>
+			<div id="title">
+				<span class="icon">⚡</span>
+				<span>Acceletron CUDA Converter</span>
+			</div>
 			<div id="status-indicator">
 				<div id="status-dot"></div>
 				<span id="status-text">Disconnected</span>
@@ -313,12 +565,12 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 		<div id="messages">
 			<div id="welcome-message">
 				<h2>Welcome to Acceletron</h2>
-				<p>Paste your C code below and submit to convert it to optimized CUDA code</p>
+				<p>Paste your C code below and submit to convert it to optimized CUDA</p>
 			</div>
 		</div>
 		<div id="input-section">
 			<textarea id="message-input" placeholder="Paste your C code here..."></textarea>
-			<button id="send-btn">Convert to CUDA</button>
+			<button id="send-btn">Convert</button>
 		</div>
 	</div>
 
@@ -331,8 +583,13 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 		const statusText = document.getElementById('status-text');
 		let hasMessages = false;
 		let isConnected = false;
+		let state = {
+			prompts: [],
+			compilationResults: [],
+			executionResults: [],
+			finalCode: null
+		};
 
-		// Update UI based on connection status
 		function updateConnectionStatus(status) {
 			isConnected = status === 'connected';
 			statusDot.className = isConnected ? 'connected' : '';
@@ -341,66 +598,164 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			sendBtn.disabled = !isConnected;
 		}
 
-		// Display a message in the chat
-		function displayMessage(type, content, className = '') {
+		function clearMessages() {
 			if (!hasMessages) {
 				messagesContainer.innerHTML = '';
 				hasMessages = true;
 			}
-
-			const messageEl = document.createElement('div');
-			messageEl.className = \`message bot \${className}\`;
-
-			if (typeof content === 'string') {
-				messageEl.textContent = content;
-			} else {
-				// For JSON content, display formatted
-				messageEl.innerHTML = \`<pre>\${JSON.stringify(content, null, 2)}</pre>\`;
-				messageEl.style.maxWidth = '100%';
-			}
-
-			messagesContainer.appendChild(messageEl);
-			messagesContainer.scrollTop = messagesContainer.scrollHeight;
 		}
 
-		// Handle backend messages
+		function createSection(title, icon, id) {
+			const section = document.createElement('div');
+			section.className = 'section collapsed';
+			section.id = id;
+			section.innerHTML = \`
+				<div class="section-header">
+					<div class="section-header-title">
+						<span class="icon">\${icon}</span>
+						<span>\${title}</span>
+					</div>
+					<span class="toggle-icon">▶</span>
+				</div>
+				<div class="section-content"></div>
+			\`;
+			
+			const header = section.querySelector('.section-header');
+			header.addEventListener('click', () => {
+				section.classList.toggle('collapsed');
+			});
+			
+			return section;
+		}
+
+		function updateSection(id, content) {
+			let section = document.getElementById(id);
+			if (!section) {
+				clearMessages();
+				const title = {
+					'prompts-section': 'LLM Prompts',
+					'compilation-section': 'Compilation Results',
+					'execution-section': 'Execution Results',
+					'code-section': 'Generated CUDA Code'
+				}[id];
+				const icon = {
+					'prompts-section': '✨',
+					'compilation-section': '🔨',
+					'execution-section': '⚡',
+					'code-section': '💻'
+				}[id];
+				section = createSection(title, icon, id);
+				messagesContainer.appendChild(section);
+			}
+			
+			const contentDiv = section.querySelector('.section-content');
+			if (typeof content === 'string') {
+				contentDiv.innerHTML += content;
+			} else {
+				contentDiv.appendChild(content);
+			}
+			
+			// Auto-expand on new content
+			section.classList.remove('collapsed');
+		}
+
 		function handleBackendMessage(message) {
 			const { action, payload } = message;
 
 			switch (action) {
 				case 'gprof_profiling':
-					displayMessage('backend', \`⏱️ Serial Execution Time: \${payload.c_time_str}\\n\\n\${payload.time_profile}\`, 'info');
+					clearMessages();
+					const profilingSection = createSection('Serial Profiling Results', '📊', 'profiling-section');
+					const profilingContent = \`
+						<div style="background: var(--surface-tertiary); padding: 10px; border-radius: 4px; margin-bottom: 8px;">
+							<div style="color: var(--accent-green); font-weight: 600; margin-bottom: 6px;">⏱️ Execution Time: \${payload.c_time_str}</div>
+							<div class="code-block"><pre>\${payload.time_profile}</pre></div>
+						</div>
+					\`;
+					profilingSection.querySelector('.section-content').innerHTML = profilingContent;
+					profilingSection.classList.remove('collapsed');
+					messagesContainer.appendChild(profilingSection);
 					break;
-				case 'mcprof_profiling':
-					displayMessage('backend', \`📊 Memory Profiling:\\n\${payload.memory_profile}\`, 'info');
-					break;
+
 				case 'prompt_generation':
-					displayMessage('backend', \`✨ Generated \${payload.prompts.length} prompts for LLM\`, 'info');
+					clearMessages();
+					state.prompts = payload.prompts;
+					const promptsSection = createSection(\`LLM Prompts (\${payload.prompts.length})\`, '✨', 'prompts-section');
+					const promptsContent = payload.prompts.map((p, idx) => \`
+						<div class="prompt-item">
+							<div class="prompt-item-title">Prompt \${p.prompt_id}</div>
+							<div class="prompt-item-text">\${p.prompt.substring(0, 200)}...</div>
+						</div>
+					\`).join('');
+					promptsSection.querySelector('.section-content').innerHTML = promptsContent;
+					promptsSection.classList.remove('collapsed');
+					messagesContainer.appendChild(promptsSection);
 					break;
+
 				case 'cuda_generation_chunk':
 					if (payload.cuda_code) {
-						displayMessage('backend', \`🚀 CUDA Code Generated (Prompt \${payload.prompt_id}):\\n\${payload.cuda_code}\`);
+						const codeSection = createSection('Generated CUDA Code', '💻', 'code-section');
+						const codeContent = \`
+							<div style="margin-bottom: 8px;">
+								<span class="status-badge info">Prompt \${payload.prompt_id}</span>
+							</div>
+							<div class="code-block"><pre>\${payload.cuda_code}</pre></div>
+						\`;
+						codeSection.querySelector('.section-content').innerHTML += codeContent;
+						codeSection.classList.remove('collapsed');
+						if (!document.getElementById('code-section')) {
+							messagesContainer.appendChild(codeSection);
+						}
 					}
 					break;
+
 				case 'cuda_compilation_chunk':
-					const compileSatus = payload.compilable ? '✅ Compiled successfully' : '❌ Compilation failed';
-					displayMessage('backend', \`\${compileSatus} (Prompt \${payload.prompt_id})\`, 'info');
+					const compilationClass = payload.compilable ? 'success' : 'failed';
+					const compilationIcon = payload.compilable ? '✅' : '❌';
+					const compilationText = payload.compilable ? 'Compiled successfully' : 'Compilation failed';
+					const compilationResult = \`
+						<div class="compilation-result \${compilationClass}">
+							<span class="icon">\${compilationIcon}</span>
+							<span>Prompt \${payload.prompt_id}: \${compilationText}</span>
+						</div>
+					\`;
+					updateSection('compilation-section', compilationResult);
 					break;
+
 				case 'cuda_execution_chunk':
-					if (payload.executable) {
-						displayMessage('backend', \`⚡ Execution Time: \${payload.cuda_time_str} (Prompt \${payload.prompt_id})\`, 'info');
-					} else {
-						displayMessage('backend', \`❌ Execution failed (Prompt \${payload.prompt_id})\`, 'error');
-					}
+					const executionClass = payload.executable ? 'success' : 'failed';
+					const executionIcon = payload.executable ? '⚡' : '❌';
+					const executionText = payload.executable ? \`Executed: \${payload.cuda_time_str}\` : 'Execution failed';
+					const executionResult = \`
+						<div class="execution-result \${executionClass}">
+							<span class="icon">\${executionIcon}</span>
+							<span>Prompt \${payload.prompt_id}: \${executionText}</span>
+						</div>
+					\`;
+					updateSection('execution-section', executionResult);
 					break;
+
 				case 'final_result':
-					displayMessage('backend', \`🎉 Best CUDA Code (Time: \${payload.cuda_time}ms):\\n\${payload.cuda_code}\`);
+					state.finalCode = payload.cuda_code;
+					const finalSection = createSection('🏆 Best CUDA Code', '🎉', 'final-section');
+					const finalContent = \`
+						<div style="margin-bottom: 12px; padding: 10px; background: rgba(16, 124, 16, 0.15); border-radius: 4px; border-left: 3px solid var(--accent-green);">
+							<div style="color: var(--accent-green); font-weight: 600;">⚡ Best Execution Time: \${payload.cuda_time}ms</div>
+						</div>
+						<div class="code-block"><pre>\${payload.cuda_code}</pre></div>
+					\`;
+					finalSection.querySelector('.section-content').innerHTML = finalContent;
+					finalSection.classList.remove('collapsed');
+					messagesContainer.appendChild(finalSection);
 					break;
+
 				case 'error':
-					displayMessage('backend', \`❌ Error: \${payload}\`, 'error');
+					clearMessages();
+					const errorEl = document.createElement('div');
+					errorEl.style.cssText = 'background: rgba(243, 101, 74, 0.15); border: 1px solid var(--accent-red); border-radius: 4px; padding: 12px; color: var(--accent-red);';
+					errorEl.innerHTML = \`<strong>❌ Error:</strong> \${payload}\`;
+					messagesContainer.appendChild(errorEl);
 					break;
-				default:
-					displayMessage('backend', \`Unknown action: \${action}\`);
 			}
 		}
 
@@ -408,10 +763,12 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			const message = messageInput.value.trim();
 			if (!message || !isConnected) return;
 
+			clearMessages();
+
 			// Display user message
 			const userMessageEl = document.createElement('div');
-			userMessageEl.className = 'message user';
-			userMessageEl.innerHTML = \`<pre>\${message}</pre>\`;
+			userMessageEl.style.cssText = 'background: var(--accent-blue); color: white; padding: 12px; border-radius: 4px; margin-bottom: 8px;';
+			userMessageEl.innerHTML = \`<strong>📝 Your C Code:</strong><div class="code-block"><pre>\${message}</pre></div>\`;
 			messagesContainer.appendChild(userMessageEl);
 
 			// Send to extension
@@ -420,6 +777,13 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			// Clear input
 			messageInput.value = '';
 			messageInput.focus();
+
+			// Show loading state
+			const loadingEl = document.createElement('div');
+			loadingEl.id = 'loading-indicator';
+			loadingEl.style.cssText = 'text-align: center; padding: 16px; color: #999;';
+			loadingEl.innerHTML = '<span class="loading-spinner"></span> Processing...';
+			messagesContainer.appendChild(loadingEl);
 
 			// Scroll to bottom
 			messagesContainer.scrollTop = messagesContainer.scrollHeight;
@@ -439,6 +803,8 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			if (type === 'connectionStatus') {
 				updateConnectionStatus(status);
 			} else if (type === 'backendMessage') {
+				const loading = document.getElementById('loading-indicator');
+				if (loading) loading.remove();
 				handleBackendMessage(data);
 			}
 		});
