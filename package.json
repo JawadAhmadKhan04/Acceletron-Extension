@@ -10,11 +10,28 @@
     "Other"
   ],
   "activationEvents": [
-    "onView:cudaConverterPanel"
+    "onView:cudaConverterPanel",
+    "onView:chatbotPanel"
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "acceletron-chatbot",
+          "title": "Chatbot",
+          "icon": "media/chatbot-icon.svg"
+        }
+      ]
+    },
     "views": {
+      "acceletron-chatbot": [
+        {
+          "id": "chatbotPanel",
+          "name": "Chatbot",
+          "type": "webview"
+        }
+      ],
       "sidebar": [
         {
           "id": "cudaConverterPanel",
@@ -28,6 +45,10 @@
       {
         "command": "acceletron-extension.openCudaConverter",
         "title": "Open CUDA Converter"
+      },
+      {
+        "command": "acceletron-extension.openChatbot",
+        "title": "Open Acceletron Chatbot"
       }
     ]
   },
@@ -45,10 +66,14 @@
     "lint": "eslint src",
     "test": "vscode-test"
   },
+  "dependencies": {
+    "ws": "^8.15.0"
+  },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.19.19",
     "@types/vscode": "^1.120.0",
+    "@types/ws": "^8.5.10",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.27.3",
