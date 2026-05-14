@@ -488,11 +488,11 @@ export class CudaConverterViewProvider implements vscode.WebviewViewProvider {
 					console.log('✅ WebSocket connected');
 					isConnected = true;
 					updateStatus('Connected', 'connected');
-					convertBtn.disabled = !input.value.trim();
-				};
+				updateConvertButtonState();
+			};
 
-				ws.onmessage = (event) => {
-					console.log('📨 WebSocket message received:', event.data);
+			ws.onmessage = (event) => {
+				console.log('📨 WebSocket message received:', event.data);
 					const data = JSON.parse(event.data);
 					handleWebSocketMessage(data);
 				};
@@ -533,7 +533,69 @@ export class CudaConverterViewProvider implements vscode.WebviewViewProvider {
 					break;
 
 				case 'mcprof_profiling':
-					addSystemMessage('💾 Memory Profiling Complete', 'progress');
+					console.log('📊 mcprof_profiling received:', payload);
+					
+					// Display memory profile
+					if (payload.memory_profile) {
+						addSystemMessage(
+							'📈 Memory Profile:\n' + payload.memory_profile,
+							'progress'
+						);
+					}
+					
+					// Display call graph if available
+					if (payload.call_graph) {
+						console.log('✅ Call graph image received, size:', payload.call_graph.length);
+						const callGraphMsg = document.createElement('div');
+						callGraphMsg.className = 'message';
+						const contentDiv = document.createElement('div');
+						contentDiv.className = 'message-content';
+						contentDiv.innerHTML = '📊 Call Graph';
+						contentDiv.style.padding = '8px 12px';
+						contentDiv.style.marginBottom = '4px';
+						
+						const img = document.createElement('img');
+						img.src = 'data:image/png;base64,' + payload.call_graph;
+						img.style.cssText = 'max-width: 100%; height: auto; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); margin: 8px 0; display: block;';
+						img.onerror = () => {
+							console.error('Failed to load call graph image');
+							img.style.display = 'none';
+						};
+						
+						contentDiv.appendChild(img);
+						callGraphMsg.appendChild(contentDiv);
+						messagesDiv.appendChild(callGraphMsg);
+					} else {
+						console.warn('⚠️ No call_graph in mcprof_profiling');
+					}
+					
+					// Display communication graph if available
+					if (payload.comm_graph) {
+						console.log('✅ Communication graph image received, size:', payload.comm_graph.length);
+						const commGraphMsg = document.createElement('div');
+						commGraphMsg.className = 'message';
+						const contentDiv = document.createElement('div');
+						contentDiv.className = 'message-content';
+						contentDiv.innerHTML = '🔗 Communication Graph';
+						contentDiv.style.padding = '8px 12px';
+						contentDiv.style.marginBottom = '4px';
+						
+						const img = document.createElement('img');
+						img.src = 'data:image/png;base64,' + payload.comm_graph;
+						img.style.cssText = 'max-width: 100%; height: auto; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); margin: 8px 0; display: block;';
+						img.onerror = () => {
+							console.error('Failed to load communication graph image');
+							img.style.display = 'none';
+						};
+						
+						contentDiv.appendChild(img);
+						commGraphMsg.appendChild(contentDiv);
+						messagesDiv.appendChild(commGraphMsg);
+					} else {
+						console.warn('⚠️ No comm_graph in mcprof_profiling');
+					}
+					
+					addSystemMessage('💾 Memory & Communication Profiling Complete', 'progress');
 					break;
 
 				case 'prompt_generation':
@@ -600,11 +662,9 @@ export class CudaConverterViewProvider implements vscode.WebviewViewProvider {
 						addAssistantMessage('Final Optimized CUDA Code', payload.cuda_code);
 					}
 
+
 					if (payload.performance_metrics) {
-						addSystemMessage(
-							createPerformancePanel(payload.performance_metrics),
-							'progress'
-						);
+						addPerformancePanel(payload.performance_metrics);
 					}
 
 					// Re-enable UI
@@ -705,13 +765,54 @@ export class CudaConverterViewProvider implements vscode.WebviewViewProvider {
 			return html;
 		}
 
-		function createPerformancePanel(metrics) {
-			let html = '📊 Performance Summary:\n';
-			if (metrics.timers) {
-				html += 'Candidate Times: ' + metrics.timers.map(t => t >= 0 ? t.toFixed(2) + 'ms' : 'N/A').join(', ') + '\n';
+		function addPerformancePanel(metrics) {
+			const msgDiv = document.createElement('div');
+			msgDiv.className = 'message progress';
+			msgDiv.style.justifyContent = 'flex-start';
+
+			const contentDiv = document.createElement('div');
+			contentDiv.className = 'message-content';
+			contentDiv.style.maxWidth = '100%';
+			contentDiv.style.fontFamily = 'Courier New, monospace';
+			contentDiv.style.fontSize = '12px';
+
+			let html = '<strong>📊 Performance Summary</strong><br><br>';
+
+			if (metrics.timers?.length > 0) {
+				html += '<strong>⏱️ Candidate Times:</strong><br>';
+				metrics.timers.forEach((t, idx) => {
+					const display = t >= 0 ? t.toFixed(2) + 'ms' : 'Failed';
+					const color = t >= 0 ? 'var(--accent-green)' : 'var(--accent-red)';
+					html += \`&nbsp;&nbsp;Prompt \${idx + 1}: <span style="color:\${color}">\${display}</span><br>\`;
+				});
+				html += '<br>';
 			}
-			return html;
+
+			if (metrics.bw_htod != null) {
+				html += '<strong>💾 Bandwidth:</strong><br>';
+				html += \`&nbsp;&nbsp;Host→Device: <span style="color:var(--accent-green)">\${metrics.bw_htod.toFixed(2)} \${metrics.units?.bw ?? 'GB/s'}</span><br>\`;
+				html += \`&nbsp;&nbsp;Device→Host: <span style="color:var(--accent-green)">\${metrics.bw_dtoh.toFixed(2)} \${metrics.units?.bw ?? 'GB/s'}</span><br><br>\`;
+			}
+
+			if (metrics.runs?.length > 0) {
+				html += '<strong>🔄 Benchmark Runs:</strong><br>';
+				html += \`&nbsp;&nbsp;\${metrics.runs.map(r => r.toFixed(2) + 'ms').join(', ')}<br><br>\`;
+			}
+
+			if (metrics.ncu_summary && Object.keys(metrics.ncu_summary).length > 0) {
+				html += '<strong>📈 NCU Metrics:</strong><br>';
+				for (const [key, value] of Object.entries(metrics.ncu_summary)) {
+					const val = typeof value === 'number' ? value.toFixed(2) : value;
+					html += \`&nbsp;&nbsp;\${key}: <span style="color:var(--accent-green)">\${val}\${metrics.units?.ncu ? ' ' + metrics.units.ncu : ''}</span><br>\`;
+				}
+			}
+
+			contentDiv.innerHTML = html;
+			msgDiv.appendChild(contentDiv);
+			messagesDiv.appendChild(msgDiv);
 		}
+
+		
 
 		function formatTime(ms) {
 			if (ms >= 1000) {
@@ -783,7 +884,6 @@ export class CudaConverterViewProvider implements vscode.WebviewViewProvider {
 
 		// Initialize
 		connectWebSocket();
-
 		// Attempt to reconnect on WebSocket close
 		setInterval(() => {
 			if (!isConnected && (ws === null || ws.readyState === WebSocket.CLOSED)) {

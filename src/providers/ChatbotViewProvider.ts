@@ -104,6 +104,7 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 <html lang="en">
 <head>
 	<meta charset="UTF-8">
+	<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: vscode-resource:; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Acceletron CUDA Converter</title>
 	<style>
@@ -265,6 +266,10 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			padding: 12px 14px;
 			max-height: 400px;
 			overflow-y: auto;
+		}
+
+		#mcprof-section .section-content {
+			max-height: 800px;
 		}
 
 		.section-content::-webkit-scrollbar {
@@ -652,8 +657,6 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			isConnected = status === 'connected';
 			statusDot.className = isConnected ? 'connected' : '';
 			statusText.textContent = status.charAt(0).toUpperCase() + status.slice(1);
-			messageInput.disabled = !isConnected;
-			sendBtn.disabled = !isConnected;
 		}
 
 		function clearMessages() {
@@ -739,40 +742,65 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 					const mcprofSection = createSection('Memory & Communication Profiling', '💾', 'mcprof-section');
 					let mcprofContent = '';
 					
-					// Memory profile
-					if (payload.memory_profile) {
-						mcprofContent += \`
-							<div style="margin-bottom: 12px;">
-								<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">📈 Memory Profile:</div>
-								<div class="code-block"><pre>\${payload.memory_profile}</pre></div>
-							</div>
-						\`;
-					}
-					
-					// // Call graph
-					// if (payload.call_graph) {
-					// 	mcprofContent += \`
-					// 		<div style="margin-bottom: 12px;">
-					// 			<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">📊 Call Graph:</div>
-					// 			<img src="data:image/png;base64,\${payload.call_graph}" style="max-width: 100%; border-radius: 4px; border: 1px solid var(--border-color);" />
-					// 		</div>
-					// 	\`;
-					// }
-					
-					// // Communication graph
-					// if (payload.comm_graph) {
-					// 	mcprofContent += \`
-					// 		<div style="margin-bottom: 12px;">
-					// 			<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">🔗 Communication Graph:</div>
-					// 			<img src="data:image/png;base64,\${payload.comm_graph}" style="max-width: 100%; border-radius: 4px; border: 1px solid var(--border-color);" />
-					// 		</div>
-					// 	\`;
-					// }
-					
-					mcprofSection.querySelector('.section-content').innerHTML = mcprofContent;
-					mcprofSection.classList.remove('collapsed');
-					messagesContainer.appendChild(mcprofSection);
-					break;
+				// Debug logging
+				console.log('📊 mcprof_profiling payload:', payload);
+				console.log('Has call_graph:', !!payload.call_graph);
+				console.log('Has comm_graph:', !!payload.comm_graph);
+				console.log('Has memory_profile:', !!payload.memory_profile);
+				
+				// Memory profile
+				if (payload.memory_profile) {
+					mcprofContent += \`
+						<div style="margin-bottom: 12px;">
+							<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">📈 Memory Profile:</div>
+							<div class="code-block"><pre>\${payload.memory_profile}</pre></div>
+						</div>
+					\`;
+				} else {
+					console.warn('⚠️ No memory_profile received');
+				}
+				
+		
+				// Call graph
+				if (payload.call_graph) {
+					console.log('✅ Call graph received, size:', payload.call_graph.length);
+					mcprofContent += \`
+						<div style="margin-bottom: 12px;">
+							<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">📊 Call Graph:</div>
+							<img 
+								src="data:image/png;base64,\${payload.call_graph}" 
+								style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--border-color); display: block;"
+								onerror="console.error('Failed to load call graph'); this.style.display='none'; this.nextElementSibling.style.display='block';"
+							/>
+							<div style="display:none; color: var(--accent-red); font-size: 11px;">⚠️ Failed to load call graph image</div>
+						</div>
+					\`;
+				} else {
+					console.warn('⚠️ No call_graph received');
+				}
+
+				// Communication graph
+				if (payload.comm_graph) {
+					console.log('✅ Communication graph received, size:', payload.comm_graph.length);
+					mcprofContent += \`
+						<div style="margin-bottom: 12px;">
+							<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">🔗 Communication Graph:</div>
+							<img 
+								src="data:image/png;base64,\${payload.comm_graph}" 
+								style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--border-color); display: block;"
+								onerror="console.error('Failed to load comm graph'); this.style.display='none'; this.nextElementSibling.style.display='block';"
+							/>
+							<div style="display:none; color: var(--accent-red); font-size: 11px;">⚠️ Failed to load communication graph image</div>
+						</div>
+					\`;
+				} else {
+					console.warn('⚠️ No comm_graph received');
+				}
+
+				mcprofSection.querySelector('.section-content').innerHTML = mcprofContent;
+				mcprofSection.classList.remove('collapsed');
+				messagesContainer.appendChild(mcprofSection);
+				break;
 
 				case 'prompt_generation':
 					clearMessages();
@@ -905,6 +933,8 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 					break;
 
 				case 'final_result':
+					console.log('🏁 final_result:', JSON.stringify(payload));
+					console.log('performance_metrics:', payload.performance_metrics);
 					state.finalCode = payload.cuda_code;
 					const finalSection = createSection('🏆 Best CUDA Code', '🎉', 'final-section');
 					const finalContent = document.createElement('div');
@@ -953,7 +983,11 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 
 		function sendMessage() {
 			const message = messageInput.value.trim();
-			if (!message || !isConnected) return;
+			if (!message) return;
+			if (!isConnected) {
+				alert('Not connected to backend. Please start the server at ws://localhost:8000');
+				return;
+			}
 
 			clearMessages();
 
