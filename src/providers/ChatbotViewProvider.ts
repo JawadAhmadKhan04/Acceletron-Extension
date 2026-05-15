@@ -8,26 +8,21 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 	private backendUrl = 'ws://localhost:8000/c_to_cuda'; // Configure this as needed
 
 	constructor(private readonly context: vscode.ExtensionContext) {
-		console.log('🔍 [Extension] ChatbotViewProvider constructor called');
 		this.connectToBackend();
-		console.log('🔍 [Extension] connectToBackend() called in constructor');
 	}
 
 	private connectToBackend() {
 		console.log('🔍 [Extension] connectToBackend() method executing');
 		try {
 			this.websocket = new WebSocket(this.backendUrl);
-			console.log('🔍 [Extension] WebSocket created, attempting connection to:', this.backendUrl);
 
 			this.websocket.on('open', () => {
-				console.log('✅ WebSocket connected to backend');
 				this.notifyWebviewStatus('connected');
 			});
 
 			this.websocket.on('message', (data: string) => {
 				try {
 					const message = JSON.parse(data);
-					console.log('📨 Backend message:', message);
 					this.handleBackendMessage(message);
 				} catch (error) {
 					console.error('Error parsing backend message:', error);
@@ -40,7 +35,6 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			});
 
 			this.websocket.on('close', () => {
-				console.log('🔌 WebSocket disconnected');
 				this.notifyWebviewStatus('disconnected');
 				// Attempt to reconnect after 5 seconds
 				setTimeout(() => this.connectToBackend(), 5000);
@@ -80,15 +74,12 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 	}
 
 	public showHistory() {
-		console.log('🔍 [Extension] showHistory() called');
 		if (this.webviewView) {
-			console.log('🔍 [Extension] Webview exists, executing command and posting message');
 			vscode.commands.executeCommand('chatbotPanel.focus');
 			this.webviewView.webview.postMessage({
 				type: 'showView',
 				view: 'history-view'
 			});
-			console.log('🔍 [Extension] Posted message to webview: showView -> history-view');
 		} else {
 			console.error('❌ [Extension] Webview is undefined!');
 		}
@@ -99,24 +90,19 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 		context: vscode.WebviewViewResolveContext,
 		token: vscode.CancellationToken,
 	) {
-		console.log('🔍 [Extension] resolveWebviewView() called');
 		this.webviewView = webviewView;
-		console.log('🔍 [Extension] Webview assigned to this.webviewView');
 
 		// Configure the webview
 		webviewView.webview.options = {
 			enableScripts: true,
 			localResourceRoots: [this.context.extensionUri],
 		};
-		console.log('🔍 [Extension] Webview options configured');
 
 		// Load the webview HTML
 		webviewView.webview.html = this.getWebviewContent(webviewView.webview);
-		console.log('🔍 [Extension] Webview HTML loaded');
 
 		// Handle messages from the webview
 		webviewView.webview.onDidReceiveMessage((message) => {
-			console.log('💬 Webview sent message:', message);
 
 			if (message.type === 'userMessage' && this.websocket?.readyState === WebSocket.OPEN) {
 				// Forward user message to backend
@@ -128,11 +114,8 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 
 		// Notify webview of current connection status
 		if (this.websocket?.readyState === WebSocket.OPEN) {
-			console.log('🔍 [Extension] WebSocket is open, notifying webview of connected status');
 			this.notifyWebviewStatus('connected');
-		} else {
-			console.log('🔍 [Extension] WebSocket is not open (readyState:', this.websocket?.readyState, ')');
-		}
+		} 
 	}
 
 	private getWebviewContent(webview: vscode.Webview): string {
@@ -748,19 +731,12 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 
 	<script>
 		const vscode = acquireVsCodeApi();
-		console.log('🔍 [Webview] Script initializing...');
 		const messagesContainer = document.getElementById('messages');
 		const messageInput = document.getElementById('message-input');
 		const sendBtn = document.getElementById('send-btn');
 		const statusDot = document.getElementById('status-dot');
 		const statusText = document.getElementById('status-text');
-		console.log('🔍 [Webview] DOM elements found:', {
-			messagesContainer: !!messagesContainer,
-			messageInput: !!messageInput,
-			sendBtn: !!sendBtn,
-			statusDot: !!statusDot,
-			statusText: !!statusText
-		});
+		
 		let hasMessages = false;
 		let isConnected = false;
 		let currentInputCode = '';
@@ -777,44 +753,54 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 		const views = document.querySelectorAll('.view-content');
 
 		function switchView(targetId) {
-			console.log('🔍 [Webview] switchView() called with targetId:', targetId);
 			views.forEach(v => v.classList.remove('active'));
 			const target = document.getElementById(targetId);
-			console.log('🔍 [Webview] Target element found:', !!target, 'Element:', target?.id);
 			if (target) {
 				target.classList.add('active');
-				console.log('🔍 [Webview] Added active class to:', targetId);
 			} else {
 				console.error('❌ [Webview] Target element not found:', targetId);
 			}
 			if (targetId === 'history-view') {
-				console.log('🔍 [Webview] History view activated, calling renderHistory()');
 				renderHistory();
 			}
 		}
 
 		async function renderHistory() {
-			console.log('🔍 [Webview] renderHistory() called');
 			const list = document.getElementById('history-list');
-			console.log('🔍 [Webview] history-list element found:', !!list);
+			if (!list) {
+				console.error('❌ [Webview] history-list element NOT found!');
+				return;
+			}
 			list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">Loading history...</div>';
-			console.log('🔍 [Webview] Set loading state');
 			try {
-				console.log('🔍 [Webview] Fetching from http://localhost:8000/history/');
-				const response = await fetch('http://localhost:8000/history/');
-				console.log('🔍 [Webview] Fetch response received, status:', response.status);
-				if (!response.ok) throw new Error('Failed to fetch');
+				
+				// Add timeout to fetch
+				const controller = new AbortController();
+				const timeoutId = setTimeout(() => {
+					console.error('❌ [Webview] Fetch timeout after 10 seconds');
+					controller.abort();
+				}, 10000);
+				
+				const response = await fetch('http://localhost:8000/history/', {
+					signal: controller.signal
+				});
+				clearTimeout(timeoutId);
+				
+				if (!response.ok) {
+					console.error('❌ [Webview] Response not OK:', response.status, response.statusText);
+					throw new Error(\`HTTP \${response.status}: \${response.statusText}\`);
+				}
+				
 				const items = await response.json();
-				console.log('🔍 [Webview] History items received:', items.length, 'items');
 				
 				if (items.length === 0) {
-					console.log('🔍 [Webview] No history items, displaying empty message');
 					list.innerHTML = '<div style="padding: 20px; text-align: center; color: #888;">No history yet. Convert some code to see it here.</div>';
 					return;
 				}
 				
-				console.log('🔍 [Webview] Rendering', items.length, 'history items');
-				list.innerHTML = items.map(item => \`
+				list.innerHTML = items.map(item => {
+					console.log('  - Rendering item:', item.id, item.name);
+					return \`
 					<div class="history-item">
 						<div class="history-header" style="margin-bottom: 0;">
 							<span style="font-size: 14px; color: var(--vscode-foreground);">\${item.name || 'Conversion'}</span>
@@ -824,11 +810,23 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 							<button class="copy-button" onclick="loadHistoryItem('\${item.id}')">Load in Converter</button>
 						</div>
 					</div>
-				\`).join('');
-				console.log('🔍 [Webview] History items rendered successfully');
+				\`;
+				}).join('');
+				console.log('✅ [Webview] History items rendered successfully');
 			} catch (error) {
 				console.error('❌ [Webview] Error loading history:', error);
-				list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--accent-red);">Failed to load history from backend. Make sure the backend is running.</div>';
+				console.error('❌ [Webview] Error name:', error?.name);
+				console.error('❌ [Webview] Error message:', error?.message);
+				console.error('❌ [Webview] Error stack:', error?.stack);
+				
+				let errorMsg = 'Failed to load history from backend';
+				if (error?.name === 'AbortError') {
+					errorMsg = 'Request timed out - backend not responding';
+				} else if (error?.message?.includes('Failed to fetch')) {
+					errorMsg = 'Network error - check if backend is running at http://localhost:8000';
+				}
+				
+				list.innerHTML = \`<div style="padding: 20px; text-align: center; color: var(--accent-red);"><strong>❌ \${errorMsg}</strong><br/><small style="color: #999;">Check console for details</small></div>\`;
 			}
 		}
 
@@ -849,6 +847,16 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 				if (!response.ok) throw new Error('Failed to fetch detail');
 				const detail = await response.json();
 				loadingEl.remove();
+				console.log('🔍 [Webview] History detail loaded:', detail);
+				console.log('📊 [Webview] Detail fields:', {
+					has_c_code: !!detail.c_code,
+					has_timebasedprofiling: !!detail.timebasedprofiling,
+					has_membasedprofiling: !!detail.membasedprofiling,
+					has_prompts: detail.prompts?.length || 0,
+					has_cuda_codes: detail.cuda_codes?.length || 0,
+					has_best_cuda_code: !!detail.best_cuda_code,
+					has_performance_metrics: !!detail.performance_metrics,
+				});
 
 				// Recreate the user message
 				const userMessageEl = document.createElement('div');
@@ -856,6 +864,217 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 				userMessageEl.innerHTML = \`<strong>📝 Your C Code:</strong><div class="code-block"><pre>\${detail.c_code}</pre></div>\`;
 				messagesContainer.appendChild(userMessageEl);
 
+				// Debug: Show what fields are available
+				const debugEl = document.createElement('div');
+				debugEl.style.cssText = 'background: rgba(255, 193, 7, 0.15); border-left: 3px solid #ffb900; border-radius: 4px; padding: 12px; margin-bottom: 8px; font-size: 11px;';
+				debugEl.innerHTML = \`
+					<strong>📋 Debug Info:</strong><br/>
+					Prompts: \${detail.prompts?.length || 0} | 
+					CUDA Codes: \${detail.cuda_codes?.length || 0} | 
+					Time Prof: \${!!detail.timebasedprofiling} | 
+					Mem Prof: \${!!detail.membasedprofiling}
+				\`;
+				messagesContainer.appendChild(debugEl);
+
+				// Display time-based profiling if available
+				if (detail.timebasedprofiling && detail.timebasedprofiling.execution_time) {
+					const profilingSection = createSection('Serial Profiling Results', '📊', 'profiling-section-history');
+					const profilingContent = \`
+						<div style="background: var(--surface-tertiary); padding: 10px; border-radius: 4px; margin-bottom: 8px;">
+							<div style="color: var(--accent-green); font-weight: 600; margin-bottom: 6px;">⏱️ Execution Time: \${detail.timebasedprofiling.execution_time}ms</div>
+							<div class="code-block"><pre>\${detail.timebasedprofiling.flat_profile || 'No profile data'}</pre></div>
+						</div>
+					\`;
+					profilingSection.querySelector('.section-content').innerHTML = profilingContent;
+					profilingSection.classList.remove('collapsed');
+					messagesContainer.appendChild(profilingSection);
+				}
+
+				// Display memory profiling if available
+				if (detail.membasedprofiling) {
+					const mcprofSection = createSection('Memory & Communication Profiling', '💾', 'mcprof-section-history');
+					let mcprofContent = '';
+					
+					if (detail.membasedprofiling.memory_profile) {
+						mcprofContent += \`
+							<div style="margin-bottom: 12px;">
+								<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">📈 Memory Profile:</div>
+								<div class="code-block"><pre>\${detail.membasedprofiling.memory_profile}</pre></div>
+							</div>
+						\`;
+					}
+					
+					// if (detail.membasedprofiling.call_graph_base64) {
+					// 	mcprofContent += \`
+					// 		<div style="margin-bottom: 12px;">
+					// 			<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">📊 Call Graph:</div>
+					// 			<img 
+					// 				src="data:image/png;base64,\${detail.membasedprofiling.call_graph_base64}" 
+					// 				style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--border-color); display: block;"
+					// 				onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+					// 			/>
+					// 			<div style="display:none; color: var(--accent-red); font-size: 11px;">⚠️ Failed to load call graph image</div>
+					// 		</div>
+					// 	\`;
+					// }
+
+					// if (detail.membasedprofiling.comm_graph_base64) {
+					// 	mcprofContent += \`
+					// 		<div style="margin-bottom: 12px;">
+					// 			<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">🔗 Communication Graph:</div>
+					// 			<img 
+					// 				src="data:image/png;base64,\${detail.membasedprofiling.comm_graph_base64}" 
+					// 				style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--border-color); display: block;"
+					// 				onerror="this.style.display='none'; this.nextElementSibling.style.display='block';"
+					// 			/>
+					// 			<div style="display:none; color: var(--accent-red); font-size: 11px;">⚠️ Failed to load communication graph image</div>
+					// 		</div>
+					// 	\`;
+					// }
+
+					if (mcprofContent) {
+						mcprofSection.querySelector('.section-content').innerHTML = mcprofContent;
+						mcprofSection.classList.remove('collapsed');
+						messagesContainer.appendChild(mcprofSection);
+					}
+				}
+
+				// Display prompts if available
+				if (detail.prompts && detail.prompts.length > 0) {
+					const promptsSection = createSection(\`LLM Prompts (\${detail.prompts.length})\`, '✨', 'prompts-section-history');
+					const promptsContent = document.createElement('div');
+					
+					detail.prompts.forEach((p, idx) => {
+						const promptItem = document.createElement('div');
+						promptItem.className = 'prompt-item collapsed';
+						promptItem.style.marginBottom = '8px';
+						
+						const headerDiv = document.createElement('div');
+						headerDiv.className = 'prompt-item-header';
+						headerDiv.style.display = 'flex';
+						headerDiv.style.justifyContent = 'space-between';
+						headerDiv.style.alignItems = 'center';
+						
+						const titleDiv = document.createElement('div');
+						titleDiv.style.display = 'flex';
+						titleDiv.style.alignItems = 'center';
+						titleDiv.style.gap = '8px';
+						titleDiv.style.flex = '1';
+						titleDiv.innerHTML = \`
+							<span class="prompt-toggle">▶</span>
+							<div class="prompt-item-title" style="margin: 0;">Prompt \${p.prompt_id}</div>
+						\`;
+						
+						const copyBtn = document.createElement('button');
+						copyBtn.className = 'copy-button';
+						copyBtn.textContent = '📋 Copy';
+						copyBtn.onclick = (e) => {
+							e.stopPropagation();
+							navigator.clipboard.writeText(p.prompt_text).then(() => {
+								copyBtn.textContent = '✅ Copied';
+								setTimeout(() => copyBtn.textContent = '📋 Copy', 2000);
+							});
+						};
+						
+						headerDiv.appendChild(titleDiv);
+						headerDiv.appendChild(copyBtn);
+						
+						const textDiv = document.createElement('div');
+						textDiv.className = 'prompt-item-text';
+						textDiv.textContent = p.prompt_text;
+						textDiv.style.marginTop = '8px';
+						textDiv.style.whiteSpace = 'pre-wrap';
+						
+						promptItem.appendChild(headerDiv);
+						promptItem.appendChild(textDiv);
+						
+						headerDiv.addEventListener('click', (e) => {
+							if (e.target !== copyBtn) {
+								promptItem.classList.toggle('collapsed');
+							}
+						});
+						
+						promptsContent.appendChild(promptItem);
+					});
+					
+					promptsSection.querySelector('.section-content').appendChild(promptsContent);
+					promptsSection.classList.remove('collapsed');
+					messagesContainer.appendChild(promptsSection);
+				}
+
+				// Display all CUDA codes with their compilation/execution results
+				if (detail.cuda_codes && detail.cuda_codes.length > 0) {
+					const codeSection = createSection('Generated CUDA Codes', '💻', 'code-section-history');
+					
+					detail.cuda_codes.forEach((cudaCode) => {
+						if (!cudaCode.cuda_code) return;
+						
+						const codeContainer = document.createElement('div');
+						codeContainer.style.marginBottom = '16px';
+						codeContainer.style.paddingBottom = '16px';
+						codeContainer.style.borderBottom = '1px solid var(--border-color)';
+						
+						// Code header with prompt ID
+						const codeHeader = document.createElement('div');
+						codeHeader.className = 'code-header';
+						codeHeader.innerHTML = \`<span class="status-badge info">Prompt \${cudaCode.prompt_id || cudaCode.candidate_id}</span>\`;
+						
+						const copyCodeBtn = document.createElement('button');
+						copyCodeBtn.className = 'copy-button';
+						copyCodeBtn.textContent = '📋 Copy Code';
+						copyCodeBtn.onclick = () => {
+							navigator.clipboard.writeText(cudaCode.cuda_code).then(() => {
+								copyCodeBtn.textContent = '✅ Copied';
+								setTimeout(() => copyCodeBtn.textContent = '📋 Copy Code', 2000);
+							});
+						};
+						codeHeader.appendChild(copyCodeBtn);
+						
+						// Code block
+						const codeBlock = document.createElement('div');
+						codeBlock.className = 'code-block';
+						const pre = document.createElement('pre');
+						pre.textContent = cudaCode.cuda_code;
+						codeBlock.appendChild(pre);
+						
+						// Compilation status
+						const compilationClass = cudaCode.stats.compiled ? 'success' : 'failed';
+						const compilationIcon = cudaCode.stats.compiled ? '✅' : '❌';
+						const compilationText = cudaCode.stats.compiled ? 'Compiled successfully' : ('Compilation failed: ' + (cudaCode.stats.compile_error || 'Unknown error'));
+						const compilationResult = \`
+							<div class="compilation-result \${compilationClass}">
+								<span class="icon">\${compilationIcon}</span>
+								<span>\${compilationText}</span>
+							</div>
+						\`;
+						
+						// Execution status
+						let executionResult = '';
+						if (cudaCode.stats.compiled) {
+							const executionClass = cudaCode.stats.executable ? 'success' : 'failed';
+							const executionIcon = cudaCode.stats.executable ? '⚡' : '❌';
+							const executionText = cudaCode.stats.executable ? \`Executed: \${cudaCode.stats.cuda_time}ms\` : 'Execution failed';
+							executionResult = \`
+								<div class="execution-result \${executionClass}">
+									<span class="icon">\${executionIcon}</span>
+									<span>\${executionText}</span>
+								</div>
+							\`;
+						}
+						
+						codeContainer.appendChild(codeHeader);
+						codeContainer.appendChild(codeBlock);
+						codeContainer.innerHTML += compilationResult;
+						if (executionResult) codeContainer.innerHTML += executionResult;
+						
+						codeSection.querySelector('.section-content').appendChild(codeContainer);
+					});
+					
+					codeSection.classList.remove('collapsed');
+					messagesContainer.appendChild(codeSection);
+				}
+
+				// Display final result with best CUDA code
 				if (detail.best_cuda_code && detail.best_cuda_code.cuda_code) {
 					const finalSection = createSection('🏆 Best CUDA Code (From History)', '🎉', 'final-section-history');
 					const finalContent = document.createElement('div');
@@ -864,6 +1083,9 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 						const bestTimeDiv = document.createElement('div');
 						bestTimeDiv.style.cssText = 'margin-bottom: 12px; padding: 10px; background: rgba(16, 124, 16, 0.15); border-radius: 4px; border-left: 3px solid var(--accent-green);';
 						bestTimeDiv.innerHTML = \`<div style="color: var(--accent-green); font-weight: 600;">⚡ Execution Time: \${detail.best_cuda_code.cuda_time}ms</div>\`;
+						if (detail.best_cuda_code.speedup) {
+							bestTimeDiv.innerHTML += \`<div style="color: var(--accent-green); font-size: 12px; margin-top: 4px;">Speedup: \${detail.best_cuda_code.speedup}x</div>\`;
+						}
 						finalContent.appendChild(bestTimeDiv);
 					}
 					
@@ -979,7 +1201,7 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 
 			switch (action) {
 				case 'gprof_profiling':
-					clearMessages();
+					messagesContainer.innerHTML = '';
 					const profilingSection = createSection('Serial Profiling Results', '📊', 'profiling-section');
 					const profilingContent = \`
 						<div style="background: var(--surface-tertiary); padding: 10px; border-radius: 4px; margin-bottom: 8px;">
@@ -996,11 +1218,6 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 					const mcprofSection = createSection('Memory & Communication Profiling', '💾', 'mcprof-section');
 					let mcprofContent = '';
 					
-				// Debug logging
-				console.log('📊 mcprof_profiling payload:', payload);
-				console.log('Has call_graph:', !!payload.call_graph);
-				console.log('Has comm_graph:', !!payload.comm_graph);
-				console.log('Has memory_profile:', !!payload.memory_profile);
 				
 				// Memory profile
 				if (payload.memory_profile) {
@@ -1016,40 +1233,39 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 				
 		
 				// Call graph
-				if (payload.call_graph) {
-					console.log('✅ Call graph received, size:', payload.call_graph.length);
-					mcprofContent += \`
-						<div style="margin-bottom: 12px;">
-							<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">📊 Call Graph:</div>
-							<img 
-								src="data:image/png;base64,\${payload.call_graph}" 
-								style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--border-color); display: block;"
-								onerror="console.error('Failed to load call graph'); this.style.display='none'; this.nextElementSibling.style.display='block';"
-							/>
-							<div style="display:none; color: var(--accent-red); font-size: 11px;">⚠️ Failed to load call graph image</div>
-						</div>
-					\`;
-				} else {
-					console.warn('⚠️ No call_graph received');
-				}
+				// if (payload.call_graph) {
+				// 	mcprofContent += \`
+				// 		<div style="margin-bottom: 12px;">
+				// 			<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">📊 Call Graph:</div>
+				// 			<img 
+				// 				src="data:image/png;base64,\${payload.call_graph}" 
+				// 				style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--border-color); display: block;"
+				// 				onerror="console.error('Failed to load call graph'); this.style.display='none'; this.nextElementSibling.style.display='block';"
+				// 			/>
+				// 			<div style="display:none; color: var(--accent-red); font-size: 11px;">⚠️ Failed to load call graph image</div>
+				// 		</div>
+				// 	\`;
+				// } else {
+				// 	console.warn('⚠️ No call_graph received');
+				// }
 
-				// Communication graph
-				if (payload.comm_graph) {
-					console.log('✅ Communication graph received, size:', payload.comm_graph.length);
-					mcprofContent += \`
-						<div style="margin-bottom: 12px;">
-							<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">🔗 Communication Graph:</div>
-							<img 
-								src="data:image/png;base64,\${payload.comm_graph}" 
-								style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--border-color); display: block;"
-								onerror="console.error('Failed to load comm graph'); this.style.display='none'; this.nextElementSibling.style.display='block';"
-							/>
-							<div style="display:none; color: var(--accent-red); font-size: 11px;">⚠️ Failed to load communication graph image</div>
-						</div>
-					\`;
-				} else {
-					console.warn('⚠️ No comm_graph received');
-				}
+				// // Communication graph
+				// if (payload.comm_graph) {
+				// 	console.log('✅ Communication graph received, size:', payload.comm_graph.length);
+				// 	mcprofContent += \`
+				// 		<div style="margin-bottom: 12px;">
+				// 			<div style="color: var(--accent-blue); font-weight: 600; margin-bottom: 6px;">🔗 Communication Graph:</div>
+				// 			<img 
+				// 				src="data:image/png;base64,\${payload.comm_graph}" 
+				// 				style="max-width: 100%; height: auto; border-radius: 4px; border: 1px solid var(--border-color); display: block;"
+				// 				onerror="console.error('Failed to load comm graph'); this.style.display='none'; this.nextElementSibling.style.display='block';"
+				// 			/>
+				// 			<div style="display:none; color: var(--accent-red); font-size: 11px;">⚠️ Failed to load communication graph image</div>
+				// 		</div>
+				// 	\`;
+				// } else {
+				// 	console.warn('⚠️ No comm_graph received');
+				// }
 
 				mcprofSection.querySelector('.section-content').innerHTML = mcprofContent;
 				mcprofSection.classList.remove('collapsed');
@@ -1057,7 +1273,7 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 				break;
 
 				case 'prompt_generation':
-					clearMessages();
+					messagesContainer.innerHTML = '';
 					state.prompts = payload.prompts;
 					const promptsSection = createSection(\`LLM Prompts (\${payload.prompts.length})\`, '✨', 'prompts-section');
 					const promptsContent = document.createElement('div');
@@ -1187,8 +1403,6 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 					break;
 
 				case 'final_result':
-					console.log('🏁 final_result:', JSON.stringify(payload));
-					console.log('performance_metrics:', payload.performance_metrics);
 					state.finalCode = payload.cuda_code;
 					
 					// We do not save to local VS Code state anymore
@@ -1230,7 +1444,7 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 					break;
 
 				case 'error':
-					clearMessages();
+					messagesContainer.innerHTML = '';
 					const errorEl = document.createElement('div');
 					errorEl.style.cssText = 'background: rgba(243, 101, 74, 0.15); border: 1px solid var(--accent-red); border-radius: 4px; padding: 12px; color: var(--accent-red);';
 					errorEl.innerHTML = \`<strong>❌ Error:</strong> \${payload}\`;
@@ -1248,7 +1462,8 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 			}
 
 			currentInputCode = message;
-			clearMessages();
+			// Clear all previous content from converter
+			messagesContainer.innerHTML = '';
 
 			// Display user message
 			const userMessageEl = document.createElement('div');
@@ -1284,18 +1499,14 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 		// Listen for messages from the extension
 		window.addEventListener('message', (event) => {
 			const { type, data, status, view } = event.data;
-			console.log('🔍 [Webview] Received message from extension:', { type, status, view });
 
 			if (type === 'connectionStatus') {
-				console.log('🔍 [Webview] Updating connection status to:', status);
 				updateConnectionStatus(status);
 			} else if (type === 'backendMessage') {
-				console.log('🔍 [Webview] Received backend message');
 				const loading = document.getElementById('loading-indicator');
 				if (loading) loading.remove();
 				handleBackendMessage(data);
 			} else if (type === 'showView') {
-				console.log('🔍 [Webview] showView message received, switching to view:', view);
 				switchView(view);
 			} else {
 				console.warn('⚠️ [Webview] Unknown message type:', type);
@@ -1304,7 +1515,6 @@ export class ChatbotViewProvider implements vscode.WebviewViewProvider {
 
 		// Initial status
 		updateConnectionStatus('disconnected');
-		console.log('🔍 [Webview] Webview script fully initialized');
 	</script>
 </body>
 </html>`;

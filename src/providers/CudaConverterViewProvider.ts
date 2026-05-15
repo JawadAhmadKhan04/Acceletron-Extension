@@ -545,56 +545,56 @@ export class CudaConverterViewProvider implements vscode.WebviewViewProvider {
 					}
 					
 					// Display call graph if available
-					if (payload.call_graph) {
-						console.log('✅ Call graph image received, size:', payload.call_graph.length);
-						const callGraphMsg = document.createElement('div');
-						callGraphMsg.className = 'message';
-						const contentDiv = document.createElement('div');
-						contentDiv.className = 'message-content';
-						contentDiv.innerHTML = '📊 Call Graph';
-						contentDiv.style.padding = '8px 12px';
-						contentDiv.style.marginBottom = '4px';
+					// if (payload.call_graph) {
+					// 	console.log('✅ Call graph image received, size:', payload.call_graph.length);
+					// 	const callGraphMsg = document.createElement('div');
+					// 	callGraphMsg.className = 'message';
+					// 	const contentDiv = document.createElement('div');
+					// 	contentDiv.className = 'message-content';
+					// 	contentDiv.innerHTML = '📊 Call Graph';
+					// 	contentDiv.style.padding = '8px 12px';
+					// 	contentDiv.style.marginBottom = '4px';
 						
-						const img = document.createElement('img');
-						img.src = 'data:image/png;base64,' + payload.call_graph;
-						img.style.cssText = 'max-width: 100%; height: auto; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); margin: 8px 0; display: block;';
-						img.onerror = () => {
-							console.error('Failed to load call graph image');
-							img.style.display = 'none';
-						};
+					// 	const img = document.createElement('img');
+					// 	img.src = 'data:image/png;base64,' + payload.call_graph;
+					// 	img.style.cssText = 'max-width: 100%; height: auto; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); margin: 8px 0; display: block;';
+					// 	img.onerror = () => {
+					// 		console.error('Failed to load call graph image');
+					// 		img.style.display = 'none';
+					// 	};
 						
-						contentDiv.appendChild(img);
-						callGraphMsg.appendChild(contentDiv);
-						messagesDiv.appendChild(callGraphMsg);
-					} else {
-						console.warn('⚠️ No call_graph in mcprof_profiling');
-					}
+					// 	contentDiv.appendChild(img);
+					// 	callGraphMsg.appendChild(contentDiv);
+					// 	messagesDiv.appendChild(callGraphMsg);
+					// } else {
+					// 	console.warn('⚠️ No call_graph in mcprof_profiling');
+					// }
 					
-					// Display communication graph if available
-					if (payload.comm_graph) {
-						console.log('✅ Communication graph image received, size:', payload.comm_graph.length);
-						const commGraphMsg = document.createElement('div');
-						commGraphMsg.className = 'message';
-						const contentDiv = document.createElement('div');
-						contentDiv.className = 'message-content';
-						contentDiv.innerHTML = '🔗 Communication Graph';
-						contentDiv.style.padding = '8px 12px';
-						contentDiv.style.marginBottom = '4px';
+					// // Display communication graph if available
+					// if (payload.comm_graph) {
+					// 	console.log('✅ Communication graph image received, size:', payload.comm_graph.length);
+					// 	const commGraphMsg = document.createElement('div');
+					// 	commGraphMsg.className = 'message';
+					// 	const contentDiv = document.createElement('div');
+					// 	contentDiv.className = 'message-content';
+					// 	contentDiv.innerHTML = '🔗 Communication Graph';
+					// 	contentDiv.style.padding = '8px 12px';
+					// 	contentDiv.style.marginBottom = '4px';
 						
-						const img = document.createElement('img');
-						img.src = 'data:image/png;base64,' + payload.comm_graph;
-						img.style.cssText = 'max-width: 100%; height: auto; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); margin: 8px 0; display: block;';
-						img.onerror = () => {
-							console.error('Failed to load communication graph image');
-							img.style.display = 'none';
-						};
+					// 	const img = document.createElement('img');
+					// 	img.src = 'data:image/png;base64,' + payload.comm_graph;
+					// 	img.style.cssText = 'max-width: 100%; height: auto; border-radius: 4px; border: 1px solid rgba(255, 255, 255, 0.1); margin: 8px 0; display: block;';
+					// 	img.onerror = () => {
+					// 		console.error('Failed to load communication graph image');
+					// 		img.style.display = 'none';
+					// 	};
 						
-						contentDiv.appendChild(img);
-						commGraphMsg.appendChild(contentDiv);
-						messagesDiv.appendChild(commGraphMsg);
-					} else {
-						console.warn('⚠️ No comm_graph in mcprof_profiling');
-					}
+					// 	contentDiv.appendChild(img);
+					// 	commGraphMsg.appendChild(contentDiv);
+					// 	messagesDiv.appendChild(commGraphMsg);
+					// } else {
+					// 	console.warn('⚠️ No comm_graph in mcprof_profiling');
+					// }
 					
 					addSystemMessage('💾 Memory & Communication Profiling Complete', 'progress');
 					break;
